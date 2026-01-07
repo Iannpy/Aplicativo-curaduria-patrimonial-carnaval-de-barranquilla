@@ -199,7 +199,7 @@ class AuthManager:
         }
         </style>""", unsafe_allow_html=True)
         # 1. Inyectar CSS que apunte al contenedor con una key concreta
-        st.html(
+        st.markdown(
             """
             <style>
             div.st-key-form_blanco {
@@ -208,7 +208,8 @@ class AuthManager:
                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             }
             </style>
-            """
+            """,
+            unsafe_allow_html=True
         )
         col1, col2, col3 = st.columns([2, 3, 2])
         with col2:
