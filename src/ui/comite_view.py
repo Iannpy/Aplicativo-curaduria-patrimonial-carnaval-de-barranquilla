@@ -34,10 +34,7 @@ def mostrar_vista_comite():
     # Cargar evaluaciones
     df_eval = EvaluacionModel.obtener_todas_dataframe()
     
-    if df_eval.empty:
-        st.warning("⚠️ No hay evaluaciones registradas todavía")
-        st.info("Las evaluaciones aparecerán aquí una vez que los curadores comiencen a registrarlas")
-        st.stop()
+
     
     # Sidebar - Navegación (ANTES del botón logout)
     with st.sidebar:
