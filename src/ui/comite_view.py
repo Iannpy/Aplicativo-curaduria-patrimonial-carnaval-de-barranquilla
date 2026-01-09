@@ -701,33 +701,17 @@ def mostrar_gestion_usuarios():
                 with col5:
                     if user['username'] != st.session_state.usuario:  # No puede eliminarse a sí mismo
                         if st.button("🗑️ Eliminar", key=f"del_{user['id']}", type="secondary", use_container_width=True):
-                            num_eval = UsuarioModel.contar_evaluaciones_usuario(user['username'])
-                            if num_eval > 0:
-                                st.warning(f"⚠️ Este usuario tiene {num_eval} evaluaciones. ¿Eliminar de todos modos?")
-                                if st.button(f"✓ Confirmar eliminación de {user['username']}", key=f"conf_{user['id']}"):
-                                    exito, error = UsuarioModel.eliminar_usuario(user['username'])
-                                    if exito:
-                                        LogModel.registrar_log(
-                                            st.session_state.usuario,
-                                            "USUARIO_ELIMINADO",
-                                            f"Usuario: {user['username']} ({num_eval} evaluaciones eliminadas)"
-                                        )
-                                        st.success("Usuario eliminado")
-                                        st.rerun()
-                                    else:
-                                        st.error(error)
+                            exito, error = UsuarioModel.eliminar_usuario(user['username'])
+                            if exito:
+                                LogModel.registrar_log(
+                                    st.session_state.usuario,
+                                    "USUARIO_ELIMINADO",
+                                    f"Usuario: {user['username']}"
+                                )
+                                st.success("Usuario eliminado")
+                                st.rerun()
                             else:
-                                exito, error = UsuarioModel.eliminar_usuario(user['username'])
-                                if exito:
-                                    LogModel.registrar_log(
-                                        st.session_state.usuario,
-                                        "USUARIO_ELIMINADO",
-                                        f"Usuario: {user['username']}"
-                                    )
-                                    st.success("Usuario eliminado")
-                                    st.rerun()
-                                else:
-                                    st.error(error)
+                                st.error(error)
                 
                 st.markdown("---")
     
