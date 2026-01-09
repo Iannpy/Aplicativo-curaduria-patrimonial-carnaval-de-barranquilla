@@ -65,6 +65,7 @@ def mostrar_vista_comite():
         
         crear_boton_logout()
 
+    
     paginas_sin_evaluaciones = ["Administración", "Gestión de Usuarios"]
     
     # Si la página requiere evaluaciones y no hay, mostrar aviso
@@ -99,7 +100,7 @@ def mostrar_vista_comite():
     elif pagina == "Administración":
         mostrar_panel_admin()
     elif pagina == "Gestión de Usuarios":
-        mostrar_gestion_usuarios()
+        mostrar_gestion_usuarios(df_eval)
 
 def mostrar_dashboard(df_eval: pd.DataFrame):
     """Dashboard general con KPIs y gráficos principales"""
@@ -216,7 +217,7 @@ def mostrar_dashboard(df_eval: pd.DataFrame):
     cantidad_modalidad = df_promedios[df_promedios['modalidad'] == seleccion_raw].shape[0]
         
     import math
-    cantidad_congos = math.ceil(cantidad_modalidad * 0.15)
+    cantidad_congos = int(math.ceil(cantidad_modalidad * 0.15))
     
     if cantidad_modalidad == 0:
         st.warning(f"⚠️ No hay grupos en la modalidad '{seleccion_raw}'")
@@ -559,7 +560,7 @@ def mostrar_panel_admin():
                             st.error("Esta opción eliminará TODAS las evaluaciones")
                             if st.checkbox("Confirmo que quiero eliminar todo"):
                                 cursor.execute("DELETE FROM evaluaciones")
-                                cursor.execute("DELETE FROM grupos")
+                                
                                 
                                 insertados = 0
                                 for _, row in df_excel.iterrows():
@@ -628,7 +629,7 @@ def mostrar_panel_admin():
 # AGREGAR ESTA FUNCIÓN A src/ui/comite_view.py
 # ═══════════════════════════════════════════════════════════
 
-def mostrar_gestion_usuarios():
+def mostrar_gestion_usuarios(df_eval: pd.DataFrame):
     """Panel de gestión completa de usuarios"""
     from src.database.models import UsuarioModel, LogModel
     import bcrypt
@@ -636,6 +637,7 @@ def mostrar_gestion_usuarios():
     st.header("👥 Gestión de Usuarios")
     st.caption("Administración de curadores y miembros del comité")
     st.button("🔄️ Actualizar")
+    st.dataframe(df_eval.head())
 
 
     
