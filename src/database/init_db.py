@@ -68,30 +68,49 @@ CREATE INDEX IF NOT EXISTS idx_dimensiones_orden ON dimensiones(orden);
 
 
 -- =====================================================
+-- TABLA: aspectos
+-- Aspectos evaluables dentro de cada dimensión
+-- =====================================================
+CREATE TABLE IF NOT EXISTS aspectos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dimension_id INTEGER NOT NULL,
+    nombre TEXT NOT NULL,
+    descripcion TEXT,
+    orden INTEGER NOT NULL,
+
+    FOREIGN KEY (dimension_id) REFERENCES dimensiones(id) ON DELETE CASCADE,
+    UNIQUE (dimension_id, nombre),
+    CHECK (orden > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_aspectos_dimension ON aspectos(dimension_id);
+CREATE INDEX IF NOT EXISTS idx_aspectos_orden ON aspectos(orden);
+
+
+
+-- =====================================================
 -- TABLA: evaluaciones
--- Registro de evaluaciones realizadas
+-- Registro de evaluaciones por aspecto
 -- =====================================================
 CREATE TABLE IF NOT EXISTS evaluaciones (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     usuario_id INTEGER NOT NULL,
     codigo_grupo TEXT NOT NULL,
-    dimension_id INTEGER NOT NULL,
+    aspecto_id INTEGER NOT NULL,
     resultado INTEGER CHECK(resultado IN (0, 1, 2)) NOT NULL,
     observacion TEXT NOT NULL,
     fecha_registro TEXT DEFAULT CURRENT_TIMESTAMP,
-    
+
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (codigo_grupo) REFERENCES grupos(codigo) ON DELETE CASCADE,
-    FOREIGN KEY (dimension_id) REFERENCES dimensiones(id) ON DELETE CASCADE,
-    
-    UNIQUE(usuario_id, codigo_grupo, dimension_id),
+    FOREIGN KEY (aspecto_id) REFERENCES aspectos(id) ON DELETE CASCADE,
+
+    UNIQUE(usuario_id, codigo_grupo, aspecto_id),
     CHECK(length(observacion) >= 20)
 );
 
-CREATE INDEX IF NOT EXISTS idx_evaluaciones_usuario ON evaluaciones(usuario_id);
-CREATE INDEX IF NOT EXISTS idx_evaluaciones_grupo ON evaluaciones(codigo_grupo);
-CREATE INDEX IF NOT EXISTS idx_evaluaciones_fecha ON evaluaciones(fecha_registro);
-CREATE INDEX IF NOT EXISTS idx_evaluaciones_dimension ON evaluaciones(dimension_id);
+CREATE INDEX IF NOT EXISTS idx_evaluaciones_aspecto ON evaluaciones(aspecto_id);
+
 
 
 -- =====================================================
@@ -111,18 +130,43 @@ CREATE INDEX IF NOT EXISTS idx_logs_usuario ON logs_sistema(usuario);
 """
 
 
+# Dimensiones y aspectos iniciales
 DIMENSIONES_INICIALES = [
-    ('DIM1', 'Dimensión 1 – Rigor en la ejecución tradicional', 
-     'Evaluación de aspectos técnicos y tradicionales de la presentación', 1),
-    ('DIM2', 'Dimensión 2 – Transmisión del sentido cultural', 
-     'Evaluación de la transmisión de identidad y valores culturales', 2),
-    ('DIM3', 'Dimensión 3 – Vitalidad e innovación con pertinencia', 
-     'Evaluación de creatividad manteniendo pertinencia cultural', 3),
-    ('DIM4', 'Dimensión 4 – Participación comunitaria y relevo', 
-     'Evaluación de participación comunitaria y transmisión generacional', 4),
-    ('DIM5', 'Dimensión 5 – Sostenibilidad de la práctica', 
-     'Evaluación de sostenibilidad organizacional y cultural', 5),
+    {
+        'codigo': 'DIM1',
+        'nombre': 'Dimensión 1 – Rigor en la ejecución tradicional',
+        'orden': 1,
+        'aspectos': [
+            'Coreografía / pasos básicos',
+            'Expresión dancística',
+            'Relación música – danza',
+            'Vestuario apropiado (incluye parafernalia)',
+            'Marcación del ritmo'
+        ]
+    },
+    {
+        'codigo': 'DIM2',
+        'nombre': 'Dimensión 2 – Transmisión del sentido cultural',
+        'orden': 2,
+        'aspectos': [
+            'Su identidad',
+            'Su narrativa',
+            'Su historia',
+            'El valor simbólico'
+        ]
+    },
+    {
+        'codigo': 'DIM3',
+        'nombre': 'Dimensión 3 – Vitalidad e innovación con pertinencia',
+        'orden': 3,
+        'aspectos': [
+            'Creatividad con respeto',
+            'Adaptaciones pertinentes',
+            'Renovación generacional o estética sin perder esencia'
+        ]
+    }
 ]
+
 
 
 def inicializar_base_datos() -> bool:
@@ -139,22 +183,40 @@ def inicializar_base_datos() -> bool:
         ejecutar_script(SCHEMA_SQL)
         logger.info("Esquema de base de datos creado")
         
-        # Insertar dimensiones si no existen
+        # Insertar dimensiones y aspectos si no existen
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
+            # Verificar si ya existen dimensiones
             cursor.execute("SELECT COUNT(*) FROM dimensiones")
-            count = cursor.fetchone()[0]
+            count_dimensiones = cursor.fetchone()[0]
             
-            if count == 0:
-                cursor.executemany(
-                    """INSERT INTO dimensiones (codigo, nombre, descripcion, orden)
-                       VALUES (?, ?, ?, ?)""",
-                    DIMENSIONES_INICIALES
-                )
-                logger.info(f"Dimensiones iniciales insertadas: {len(DIMENSIONES_INICIALES)}")
+            if count_dimensiones == 0:
+                logger.info("Insertando dimensiones iniciales...")
+                
+                for dim in DIMENSIONES_INICIALES:
+                    # Insertar dimensión
+                    cursor.execute(
+                        """INSERT INTO dimensiones (codigo, nombre, orden)
+                        VALUES (?, ?, ?)""",
+                        (dim['codigo'], dim['nombre'], dim['orden'])
+                    )
+                    dimension_id = cursor.lastrowid
+                    
+                    # Insertar aspectos de esta dimensión
+                    for orden, nombre_aspecto in enumerate(dim['aspectos'], start=1):
+                        cursor.execute(
+                            """INSERT INTO aspectos (dimension_id, nombre, orden)
+                            VALUES (?, ?, ?)""",
+                            (dimension_id, nombre_aspecto, orden)
+                        )
+                    
+                    logger.info(f"Dimensión '{dim['nombre']}' insertada con {len(dim['aspectos'])} aspectos")
+                
+                conn.commit()
+                logger.info("Dimensiones y aspectos iniciales insertados correctamente")
             else:
-                logger.info(f"Dimensiones ya existen: {count} registros")
+                logger.info(f"Las dimensiones ya existen ({count_dimensiones} registros)")
         
         logger.info("Base de datos inicializada correctamente")
         return True
@@ -176,7 +238,8 @@ def verificar_integridad_bd() -> bool:
             cursor = conn.cursor()
             
             # Verificar tablas requeridas
-            tablas_requeridas = ['usuarios', 'grupos', 'dimensiones', 'evaluaciones']
+            tablas_requeridas = ['usuarios', 'grupos', 'dimensiones', 'aspectos', 'evaluaciones']
+
             cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
             )
@@ -187,7 +250,21 @@ def verificar_integridad_bd() -> bool:
                     logger.error(f"Tabla faltante: {tabla}")
                     return False
             
-            logger.info("Integridad de base de datos verificada")
+            # Verificar que existan dimensiones
+            cursor.execute("SELECT COUNT(*) FROM dimensiones")
+            count_dim = cursor.fetchone()[0]
+            if count_dim == 0:
+                logger.warning("No hay dimensiones en la base de datos")
+                return False
+            
+            # Verificar que existan aspectos
+            cursor.execute("SELECT COUNT(*) FROM aspectos")
+            count_asp = cursor.fetchone()[0]
+            if count_asp == 0:
+                logger.warning("No hay aspectos en la base de datos")
+                return False
+            
+            logger.info(f"Integridad de base de datos verificada ({count_dim} dimensiones, {count_asp} aspectos)")
             return True
             
     except Exception as e:

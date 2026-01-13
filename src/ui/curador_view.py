@@ -1,12 +1,13 @@
 """
 Vista de la interfaz para Curadores
+ACTUALIZADO: Evaluación por aspectos individuales
 """
 import streamlit as st
 import pandas as pd
 import logging
 from datetime import datetime
 from src.config import config
-from src.database.models import GrupoModel, EvaluacionModel, DimensionModel, LogModel
+from src.database.models import GrupoModel, EvaluacionModel, DimensionModel, LogModel, AspectoModel
 from src.utils.validators import validar_codigo_grupo, validar_observacion
 
 logger = logging.getLogger(__name__)
@@ -28,37 +29,32 @@ def cargar_grupos_excel():
         return pd.DataFrame()
 
 
-def bloque_dimension(titulo: str, items: list, key_prefix: str):
+def bloque_aspecto(dimension_nombre: str, aspecto_nombre: str, key_prefix: str):
     """
-    Renderiza un bloque de evaluación de dimensión
+    Renderiza un bloque de evaluación para un aspecto individual
     
     Args:
-        titulo: Título de la dimensión
-        items: Lista de aspectos a observar
+        dimension_nombre: Nombre de la dimensión padre
+        aspecto_nombre: Nombre del aspecto a evaluar
         key_prefix: Prefijo único para las claves de widgets
         
     Returns:
         Tupla (resultado, observacion)
     """
     st.markdown(f"""
-    <div class="dimension-box">
-        <div class="dimension-title">{titulo}</div>
+    <div style="background-color: #f0f2f6; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+        <p style="margin: 0; color: #666; font-size: 13px;"><b>{dimension_nombre}</b></p>
+        <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold;">{aspecto_nombre}</p>
     </div>
     """, unsafe_allow_html=True)
     
-    col_obs, col_res, col_txt = st.columns([2.5, 1, 3.5])
+    col_resultado, col_obs = st.columns([1, 3])
     
-    # Columna 1: Aspectos a observar
-    with col_obs:
-        st.markdown("**Aspectos a observar:**")
-        for item in items:
-            st.markdown(f"• {item}")
-    
-    # Columna 2: Resultado
-    with col_res:
+    # Columna 1: Resultado
+    with col_resultado:
         st.markdown("**Calificación:**")
         resultado = st.selectbox(
-            "",
+            "Seleccione",
             [2, 1, 0],
             key=f"res_{key_prefix}",
             format_func=lambda x: {
@@ -68,19 +64,15 @@ def bloque_dimension(titulo: str, items: list, key_prefix: str):
             }[x],
             label_visibility="collapsed"
         )
-        
-        # Descripción del resultado
-
     
-    # Columna 3: Observación
-    with col_txt:
+    # Columna 2: Observación
+    with col_obs:
         st.markdown("**Observación cualitativa:**")
-        
         observacion = st.text_area(
             "",
-            height=150,
+            height=50,
             key=f"obs_{key_prefix}",
-            placeholder="Describa de forma específica lo observado en esta dimensión...",
+            placeholder=f"Describa lo observado específicamente para '{aspecto_nombre}'...",
             label_visibility="collapsed"
         )
         
@@ -129,7 +121,6 @@ def mostrar_vista_curador():
     
     col1_global, col2_global, col3_global = st.columns([1, 6, 1])
     with col2_global:
-        # Encabezado
         # Cargar catálogo de grupos
         df_grupos = cargar_grupos_excel()
         
@@ -166,7 +157,6 @@ def mostrar_vista_curador():
                 st.stop()
             
             # Buscar en el dataframe
-            # Intentar búsqueda exacta primero
             resultado = df_grupos[df_grupos['Codigo'].astype(str).str.upper() == codigo_limpio]
             
             # Si no encuentra, intentar búsqueda parcial
@@ -216,25 +206,44 @@ def mostrar_vista_curador():
             st.text_input("Naturaleza", value=grupo['Naturaleza'], disabled=True)
             st.text_input("Nombre de la Propuesta", value=grupo['Nombre_Propuesta'], disabled=True)
         
-        
-        
         st.info(f"🎭 **Ahora se presenta:** '{grupo['Nombre_Propuesta']}'")
         
         st.markdown("---")
         
         # Formulario de evaluación
-        st.subheader("📝 Evaluación por Dimensiones")
+        st.subheader("📝 Evaluación por Aspectos")
+        
+        # Obtener aspectos agrupados por dimensión
+        aspectos_por_dimension = AspectoModel.obtener_agrupados_por_dimension()
+        
+        if not aspectos_por_dimension:
+            st.error("❌ No se pudieron cargar los aspectos de evaluación")
+            st.stop()
         
         with st.form("formulario_evaluacion", clear_on_submit=True):
-            resultados = []
+            evaluaciones = []  # Lista de tuplas (aspecto_id, resultado, observacion)
             
-            for i, (titulo, items) in enumerate(config.dimensiones):
-                res = bloque_dimension(
-                    titulo=titulo,
-                    items=items,
-                    key_prefix=f"dim{i+1}"
-                )
-                resultados.append(res)
+            # Iterar sobre cada dimensión
+            for dim_id, dim_data in sorted(aspectos_por_dimension.items(), key=lambda x: x[1]['dimension']['orden']):
+                dimension = dim_data['dimension']
+                aspectos = dim_data['aspectos']
+                
+                # Mostrar título de dimensión
+                st.markdown(f"""
+                <div class="dimension-box" style="background: linear-gradient(135deg, #FCAB60 0%, #08A114 100%); 
+                     color: white; padding: 15px; border-radius: 10px; margin: 20px 0 15px 0;">
+                    <h3 style="margin: 0; font-size: 18px;">{dimension['nombre']}</h3>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Evaluar cada aspecto de esta dimensión
+                for aspecto in aspectos:
+                    resultado, observacion = bloque_aspecto(
+                        dimension_nombre=dimension['nombre'],
+                        aspecto_nombre=aspecto['nombre'],
+                        key_prefix=f"asp_{aspecto['id']}"
+                    )
+                    evaluaciones.append((aspecto['id'], resultado, observacion))
             
             st.markdown("---")
             
@@ -252,35 +261,43 @@ def mostrar_vista_curador():
                 # Validar que todas las observaciones estén completas
                 errores = []
                 
-                for i, (resultado, observacion) in enumerate(resultados):
+                for i, (aspecto_id, resultado, observacion) in enumerate(evaluaciones):
                     valido, error = validar_observacion(observacion)
                     if not valido:
-                        errores.append(f"**Dimensión {i+1}:** {error}")
+                        # Obtener nombre del aspecto para el mensaje
+                        aspecto_nombre = None
+                        for dim_data in aspectos_por_dimension.values():
+                            for asp in dim_data['aspectos']:
+                                if asp['id'] == aspecto_id:
+                                    aspecto_nombre = asp['nombre']
+                                    break
+                            if aspecto_nombre:
+                                break
+                        
+                        errores.append(f"**{aspecto_nombre}:** {error}")
                 
                 if errores:
                     st.error("❌ Complete correctamente todas las observaciones:")
                     for error in errores:
                         st.markdown(f"• {error}")
                 else:
-                    # Guardar evaluación
+                    # Guardar evaluaciones
                     try:
-                        # Obtener dimensiones de la BD
-                        dimensiones_bd = DimensionModel.obtener_todas()
-                        
-                        # Guardar cada dimensión
                         exito = True
-                        for i, (resultado, observacion) in enumerate(resultados):
-                            dimension = dimensiones_bd[i]
-                            
+                        evaluaciones_guardadas = 0
+                        
+                        for aspecto_id, resultado, observacion in evaluaciones:
                             eval_id = EvaluacionModel.crear_evaluacion(
                                 usuario_id=st.session_state.usuario_id,
                                 codigo_grupo=str(grupo['Codigo']),
-                                dimension_id=dimension['id'],
+                                aspecto_id=aspecto_id,
                                 resultado=resultado,
                                 observacion=observacion
                             )
                             
-                            if not eval_id:
+                            if eval_id:
+                                evaluaciones_guardadas += 1
+                            else:
                                 exito = False
                                 break
                         
@@ -289,10 +306,10 @@ def mostrar_vista_curador():
                             LogModel.registrar_log(
                                 usuario=st.session_state.usuario,
                                 accion="EVALUACION_CREADA",
-                                detalle=f"Grupo: {grupo['Codigo']} - {grupo['Nombre_Propuesta']}"
+                                detalle=f"Grupo: {grupo['Codigo']} - {grupo['Nombre_Propuesta']} ({evaluaciones_guardadas} aspectos)"
                             )
                             
-                            st.success("✅ Evaluación guardada exitosamente")
+                            st.success(f"✅ Evaluación guardada exitosamente ({evaluaciones_guardadas} aspectos evaluados)")
                             st.balloons()
                             st.session_state.evaluacion_guardada = True
                         else:
@@ -315,18 +332,18 @@ def mostrar_vista_curador():
             ### 🎯 Criterios de Calificación
             
             **🟢 Fortaleza Patrimonial**
-            - Cumplimiento sobresaliente de los aspectos patrimoniales
-            - Evidencia clara de transmisión cultural
+            - Cumplimiento sobresaliente del aspecto evaluado
+            - Evidencia clara y consistente
             - Práctica consolidada y pertinente
             
             **🟡 Oportunidad de Mejora**
-            - Cumplimiento parcial de aspectos patrimoniales
-            - Evidencia de intención pero con aspectos por fortalecer
+            - Cumplimiento parcial del aspecto
+            - Evidencia de intención pero con elementos por fortalecer
             - Práctica en proceso de consolidación
             
             **🔴 Riesgo Patrimonial**
-            - Incumplimiento de aspectos patrimoniales básicos
-            - Ausencia de elementos tradicionales fundamentales
+            - Incumplimiento del aspecto evaluado
+            - Ausencia de elementos fundamentales
             - Práctica que requiere intervención urgente
             
             ---
@@ -334,7 +351,10 @@ def mostrar_vista_curador():
             ### 📝 Guía para Observaciones
             
             Las observaciones deben ser:
-            - **Específicas:** Mencione qué observó concretamente
+            - **Específicas:** Mencione qué observó concretamente en este aspecto
             - **Descriptivas:** Describa la situación sin juicios de valor excesivos
             - **Constructivas:** Oriente sobre qué mantener o mejorar
+            - **Enfocadas:** Cada observación debe referirse únicamente al aspecto que está evaluando
+            
+            **Mínimo:** 20 caracteres por observación
             """)

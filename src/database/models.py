@@ -1,6 +1,6 @@
 """
 Modelos de datos y operaciones CRUD
-ACTUALIZADO: Incluye gestión completa de usuarios
+ACTUALIZADO: Evaluaciones por aspecto individual
 """
 import logging
 import pandas as pd
@@ -18,17 +18,7 @@ class UsuarioModel:
     
     @staticmethod
     def crear_usuario(username: str, password_hash: str, rol: str) -> Optional[int]:
-        """
-        Crea un nuevo usuario en el sistema.
-        
-        Args:
-            username: Nombre de usuario único
-            password_hash: Hash bcrypt de la contraseña
-            rol: 'curador' o 'comite'
-            
-        Returns:
-            ID del usuario creado o None si falla
-        """
+        """Crea un nuevo usuario en el sistema."""
         try:
             query = """
                 INSERT INTO usuarios (username, password_hash, rol)
@@ -43,15 +33,7 @@ class UsuarioModel:
     
     @staticmethod
     def obtener_por_username(username: str) -> Optional[Dict]:
-        """
-        Obtiene un usuario por su username.
-        
-        Args:
-            username: Nombre de usuario
-            
-        Returns:
-            Diccionario con datos del usuario o None
-        """
+        """Obtiene un usuario por su username."""
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
@@ -70,15 +52,7 @@ class UsuarioModel:
     
     @staticmethod
     def obtener_por_id(user_id: int) -> Optional[Dict]:
-        """
-        Obtiene un usuario por su ID.
-        
-        Args:
-            user_id: ID del usuario
-            
-        Returns:
-            Diccionario con datos del usuario o None
-        """
+        """Obtiene un usuario por su ID."""
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
@@ -94,15 +68,7 @@ class UsuarioModel:
     
     @staticmethod
     def obtener_todos(incluir_inactivos: bool = False) -> List[Dict]:
-        """
-        Obtiene todos los usuarios del sistema.
-        
-        Args:
-            incluir_inactivos: Si True, incluye usuarios inactivos
-            
-        Returns:
-            Lista de diccionarios con datos de usuarios
-        """
+        """Obtiene todos los usuarios del sistema."""
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
@@ -120,12 +86,7 @@ class UsuarioModel:
     
     @staticmethod
     def obtener_dataframe() -> pd.DataFrame:
-        """
-        Obtiene todos los usuarios en formato DataFrame.
-        
-        Returns:
-            DataFrame con usuarios
-        """
+        """Obtiene todos los usuarios en formato DataFrame."""
         try:
             with get_db_connection() as conn:
                 query = """
@@ -146,41 +107,15 @@ class UsuarioModel:
     
     @staticmethod
     def validar_password_strength(password: str) -> Tuple[bool, Optional[str]]:
-        """
-        Valida la fortaleza de una contraseña.
-        
-        Args:
-            password: Contraseña en texto plano
-            
-        Returns:
-            Tupla (es_valida, mensaje_error)
-        """
+        """Valida la fortaleza de una contraseña."""
         if not password or len(password) < 4:
             return False, "La contraseña debe tener al menos 4 caracteres"
-        
-        # Opcional: Validaciones más estrictas (descomentarlas si se requiere)
-        # if not re.search(r'[A-Z]', password):
-        #     return False, "La contraseña debe contener al menos una mayúscula"
-        # if not re.search(r'[a-z]', password):
-        #     return False, "La contraseña debe contener al menos una minúscula"
-        # if not re.search(r'[0-9]', password):
-        #     return False, "La contraseña debe contener al menos un número"
         
         return True, None
     
     @staticmethod
     def crear_usuario_completo(username: str, password: str, rol: str) -> Tuple[bool, Optional[str], Optional[int]]:
-        """
-        Crea un usuario con validaciones completas.
-        
-        Args:
-            username: Nombre de usuario
-            password: Contraseña en texto plano
-            rol: Rol del usuario
-            
-        Returns:
-            Tupla (exito, mensaje_error, user_id)
-        """
+        """Crea un usuario con validaciones completas."""
         # Validar username
         if not username or len(username) < 3:
             return False, "El nombre de usuario debe tener al menos 3 caracteres", None
@@ -240,16 +175,7 @@ class UsuarioModel:
 
     @staticmethod
     def actualizar_password(username: str, nueva_password: str) -> Tuple[bool, Optional[str]]:
-        """
-        Actualiza la contraseña de un usuario.
-        
-        Args:
-            username: Nombre de usuario
-            nueva_password: Nueva contraseña en texto plano
-            
-        Returns:
-            Tupla (exito, mensaje_error)
-        """
+        """Actualiza la contraseña de un usuario."""
         # Validar contraseña
         valido, error = UsuarioModel.validar_password_strength(nueva_password)
         if not valido:
@@ -278,16 +204,7 @@ class UsuarioModel:
     
     @staticmethod
     def activar_desactivar_usuario(username: str, activo: bool) -> Tuple[bool, Optional[str]]:
-        """
-        Activa o desactiva un usuario.
-        
-        Args:
-            username: Nombre de usuario
-            activo: True para activar, False para desactivar
-            
-        Returns:
-            Tupla (exito, mensaje_error)
-        """
+        """Activa o desactiva un usuario."""
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
@@ -309,16 +226,7 @@ class UsuarioModel:
     
     @staticmethod
     def eliminar_usuario(username: str) -> Tuple[bool, Optional[str]]:
-        """
-        Elimina un usuario del sistema.
-        NOTA: Esto también eliminará todas sus evaluaciones (CASCADE).
-        
-        Args:
-            username: Nombre de usuario
-            
-        Returns:
-            Tupla (exito, mensaje_error)
-        """
+        """Elimina un usuario del sistema."""
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
@@ -347,15 +255,7 @@ class UsuarioModel:
     
     @staticmethod
     def contar_evaluaciones_usuario(username: str) -> int:
-        """
-        Cuenta cuántas evaluaciones ha realizado un usuario.
-        
-        Args:
-            username: Nombre de usuario
-            
-        Returns:
-            Cantidad de evaluaciones
-        """
+        """Cuenta cuántas evaluaciones ha realizado un usuario."""
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
@@ -370,10 +270,6 @@ class UsuarioModel:
             logger.error(f"Error contando evaluaciones: {e}")
             return 0
 
-
-# ═══════════════════════════════════════════════════════════
-# RESTO DE MODELOS (sin cambios)
-# ═══════════════════════════════════════════════════════════
 
 class GrupoModel:
     """Operaciones sobre la tabla grupos"""
@@ -493,13 +389,100 @@ class DimensionModel:
             return None
 
 
+class AspectoModel:
+    """Operaciones sobre la tabla aspectos"""
+    
+    @staticmethod
+    def obtener_todos() -> List[Dict]:
+        """Obtiene todos los aspectos ordenados."""
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT a.*, d.nombre as dimension_nombre, d.codigo as dimension_codigo
+                    FROM aspectos a
+                    JOIN dimensiones d ON a.dimension_id = d.id
+                    ORDER BY d.orden, a.orden
+                """)
+                rows = cursor.fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Error obteniendo aspectos: {e}")
+            return []
+    
+    @staticmethod
+    def obtener_por_dimension(dimension_id: int) -> List[Dict]:
+        """Obtiene todos los aspectos de una dimensión específica."""
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT * FROM aspectos 
+                    WHERE dimension_id = ? 
+                    ORDER BY orden
+                """, (dimension_id,))
+                rows = cursor.fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Error obteniendo aspectos de dimensión: {e}")
+            return []
+    
+    @staticmethod
+    def obtener_agrupados_por_dimension() -> Dict[int, List[Dict]]:
+        """Obtiene aspectos agrupados por dimensión."""
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT 
+                        d.id as dimension_id,
+                        d.codigo as dimension_codigo,
+                        d.nombre as dimension_nombre,
+                        d.orden as dimension_orden,
+                        a.id as aspecto_id,
+                        a.nombre as aspecto_nombre,
+                        a.orden as aspecto_orden
+                    FROM dimensiones d
+                    LEFT JOIN aspectos a ON d.id = a.dimension_id
+                    ORDER BY d.orden, a.orden
+                """)
+                rows = cursor.fetchall()
+                
+                # Agrupar por dimensión
+                resultado = {}
+                for row in rows:
+                    dim_id = row['dimension_id']
+                    if dim_id not in resultado:
+                        resultado[dim_id] = {
+                            'dimension': {
+                                'id': row['dimension_id'],
+                                'codigo': row['dimension_codigo'],
+                                'nombre': row['dimension_nombre'],
+                                'orden': row['dimension_orden']
+                            },
+                            'aspectos': []
+                        }
+                    
+                    if row['aspecto_id']:  # Solo si hay aspecto
+                        resultado[dim_id]['aspectos'].append({
+                            'id': row['aspecto_id'],
+                            'nombre': row['aspecto_nombre'],
+                            'orden': row['aspecto_orden']
+                        })
+                
+                return resultado
+        except Exception as e:
+            logger.error(f"Error obteniendo aspectos agrupados: {e}")
+            return {}
+
+
 class EvaluacionModel:
     """Operaciones sobre la tabla evaluaciones"""
     
     @staticmethod
-    def crear_evaluacion(usuario_id: int, codigo_grupo: str, dimension_id: int,
+    def crear_evaluacion(usuario_id: int, codigo_grupo: str, aspecto_id: int,
                         resultado: int, observacion: str) -> Optional[int]:
-        """Crea una nueva evaluación."""
+        """Crea una nueva evaluación para un aspecto específico."""
         try:
             valido, error = validar_observacion(observacion)
             if not valido:
@@ -507,12 +490,12 @@ class EvaluacionModel:
                 return None
             
             query = """
-                INSERT INTO evaluaciones (usuario_id, codigo_grupo, dimension_id, resultado, observacion)
+                INSERT INTO evaluaciones (usuario_id, codigo_grupo, aspecto_id, resultado, observacion)
                 VALUES (?, ?, ?, ?, ?)
             """
             
-            eval_id = ejecutar_insert(query, (usuario_id, codigo_grupo, dimension_id, resultado, observacion))
-            logger.info(f"Evaluación creada: ID {eval_id}")
+            eval_id = ejecutar_insert(query, (usuario_id, codigo_grupo, aspecto_id, resultado, observacion))
+            logger.info(f"Evaluación creada: ID {eval_id} - Aspecto {aspecto_id}")
             return eval_id
             
         except Exception as e:
@@ -526,18 +509,49 @@ class EvaluacionModel:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 
+                # Contar cuántos aspectos únicos ha evaluado
                 cursor.execute("""
-                    SELECT COUNT(DISTINCT dimension_id)
+                    SELECT COUNT(DISTINCT aspecto_id)
                     FROM evaluaciones
                     WHERE usuario_id = ? AND codigo_grupo = ?
                 """, (usuario_id, codigo_grupo))
                 
-                count = cursor.fetchone()[0]
-                return count >= 3
+                count_evaluado = cursor.fetchone()[0]
+                
+                # Contar cuántos aspectos totales hay
+                cursor.execute("SELECT COUNT(*) FROM aspectos")
+                count_total = cursor.fetchone()[0]
+                
+                # Si ha evaluado todos los aspectos, la evaluación está completa
+                return count_evaluado >= count_total
                 
         except Exception as e:
             logger.error(f"Error verificando evaluación: {e}")
             return False
+    
+    @staticmethod
+    def obtener_evaluacion_grupo_usuario(usuario_id: int, codigo_grupo: str) -> List[Dict]:
+        """Obtiene todas las evaluaciones de un usuario para un grupo específico."""
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT 
+                        e.*,
+                        a.nombre as aspecto_nombre,
+                        d.nombre as dimension_nombre
+                    FROM evaluaciones e
+                    JOIN aspectos a ON e.aspecto_id = a.id
+                    JOIN dimensiones d ON a.dimension_id = d.id
+                    WHERE e.usuario_id = ? AND e.codigo_grupo = ?
+                    ORDER BY d.orden, a.orden
+                """, (usuario_id, codigo_grupo))
+                
+                rows = cursor.fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Error obteniendo evaluaciones: {e}")
+            return []
     
     @staticmethod
     def obtener_todas_dataframe() -> pd.DataFrame:
@@ -554,13 +568,15 @@ class EvaluacionModel:
                         g.tipo,
                         g.naturaleza,
                         d.nombre as dimension,
+                        a.nombre as aspecto,
                         e.resultado,
                         e.observacion,
                         e.fecha_registro
                     FROM evaluaciones e
                     LEFT JOIN usuarios u ON e.usuario_id = u.id
                     LEFT JOIN grupos g ON e.codigo_grupo = g.codigo
-                    JOIN dimensiones d ON e.dimension_id = d.id
+                    JOIN aspectos a ON e.aspecto_id = a.id
+                    JOIN dimensiones d ON a.dimension_id = d.id
                     ORDER BY e.fecha_registro DESC
                 """
                 
@@ -580,14 +596,16 @@ class EvaluacionModel:
                     SELECT 
                         u.username as curador,
                         d.nombre as dimension,
+                        a.nombre as aspecto,
                         e.resultado,
                         e.observacion,
                         e.fecha_registro
                     FROM evaluaciones e
                     JOIN usuarios u ON e.usuario_id = u.id
-                    JOIN dimensiones d ON e.dimension_id = d.id
+                    JOIN aspectos a ON e.aspecto_id = a.id
+                    JOIN dimensiones d ON a.dimension_id = d.id
                     WHERE e.codigo_grupo = ?
-                    ORDER BY d.orden, u.username
+                    ORDER BY d.orden, a.orden, u.username
                 """
                 
                 df = pd.read_sql_query(query, conn, params=(codigo_grupo,))
