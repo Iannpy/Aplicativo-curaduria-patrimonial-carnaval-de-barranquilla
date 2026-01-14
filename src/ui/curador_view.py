@@ -220,7 +220,7 @@ def mostrar_vista_curador():
             st.error("❌ No se pudieron cargar los aspectos de evaluación")
             st.stop()
         
-        with st.form("formulario_evaluacion", clear_on_submit=True):
+        with st.form("formulario_evaluacion", clear_on_submit=False):
             evaluaciones = []  # Lista de tuplas (aspecto_id, resultado, observacion)
             
             # Iterar sobre cada dimensión

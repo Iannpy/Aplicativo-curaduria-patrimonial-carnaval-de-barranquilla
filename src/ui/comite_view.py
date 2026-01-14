@@ -187,8 +187,8 @@ def mostrar_dashboard(df_eval: pd.DataFrame):
         color=alt.Color(
             'promedio:Q', 
             scale=alt.Scale(
-                domain=[0, 0.67, 1.33, 2],
-                range=['#d73027', '#fee08b', '#d9ef8b', '#1a9850']
+                domain=[0, 0.8, 1, 1.79, 2],
+                range=['#d73027', "#febf8b", "#fefc8b", "#b3ef8b", '#1a9850']
             ),
             legend=None
         ),
