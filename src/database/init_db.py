@@ -5,6 +5,7 @@ ACTUALIZADO: Sistema completo con fichas dinámicas
 import logging
 import os
 from src.database.connection import ejecutar_script, get_db_connection
+from src.utils.dimensiones_iniciales import FICHAS_INICIALES, FICHA_DIMENSIONES_MAP, DIMENSIONES_INICIALES
 from src.config import config
 
 logger = logging.getLogger(__name__)
@@ -174,112 +175,7 @@ CREATE INDEX IF NOT EXISTS idx_logs_usuario ON logs_sistema(usuario);
 """
 
 
-# ═══════════════════════════════════════════════════════════════════
-# DATOS INICIALES - FICHAS
-# ═══════════════════════════════════════════════════════════════════
 
-FICHAS_INICIALES = [
-    {
-        'codigo': 'CONGO',
-        'nombre': 'Ficha Congo',
-        'descripcion': 'Modalidad Danza Tradicional - Congo'
-    },
-    {
-        'codigo': 'GARABATO',
-        'nombre': 'Ficha Garabato',
-        'descripcion': 'Modalidad Danza Tradicional - Garabato'
-    },
-    {
-        'codigo': 'CUMBIA',
-        'nombre': 'Ficha Cumbia',
-        'descripcion': 'Modalidad Cumbia'
-    },
-    {
-        'codigo': 'MAPALE',
-        'nombre': 'Ficha Mapalé',
-        'descripcion': 'Modalidad Danza Tradicional - Mapalé'
-    },
-    {
-        'codigo': 'SON_NEGRO',
-        'nombre': 'Ficha Son de Negro',
-        'descripcion': 'Modalidad Danza Tradicional - Son de Negro'
-    },
-    {
-        'codigo': 'COMPARSA_TRAD',
-        'nombre': 'Ficha Comparsa de Tradición',
-        'descripcion': 'Naturaleza Tradición Popular'
-    },
-    {
-        'codigo': 'COMPARSA_FANT',
-        'nombre': 'Ficha Comparsa de Fantasía',
-        'descripcion': 'Naturaleza Fantasía'
-    },
-    {
-        'codigo': 'DANZAS_ESP',
-        'nombre': 'Ficha Danzas Especiales',
-        'descripcion': 'Danzas de Relación, Danzas Especiales y Expresiones Invitadas'
-    }
-]
-
-
-# ═══════════════════════════════════════════════════════════════════
-# DATOS INICIALES - DIMENSIONES Y ASPECTOS
-# ═══════════════════════════════════════════════════════════════════
-
-DIMENSIONES_INICIALES = [
-    {
-        'codigo': 'DIM1',
-        'nombre': 'Dimensión 1 – Rigor en la ejecución tradicional',
-        'orden': 1,
-        'aspectos': [
-            'Coreografía / pasos básicos',
-            'Expresión dancística',
-            'Relación música – danza',
-            'Vestuario apropiado (incluye parafernalia)',
-            'Marcación del ritmo'
-        ]
-    },
-    {
-        'codigo': 'DIM2',
-        'nombre': 'Dimensión 2 – Transmisión del sentido cultural',
-        'orden': 2,
-        'aspectos': [
-            'Su identidad',
-            'Su narrativa',
-            'Su historia',
-            'El valor simbólico'
-        ]
-    },
-    {
-        'codigo': 'DIM3',
-        'nombre': 'Dimensión 3 – Vitalidad e innovación con pertinencia',
-        'orden': 3,
-        'aspectos': [
-            'Creatividad con respeto',
-            'Adaptaciones pertinentes',
-            'Renovación generacional o estética sin perder esencia'
-        ]
-    }
-]
-
-
-# ═══════════════════════════════════════════════════════════════════
-# MAPEO: FICHAS → DIMENSIONES
-# ═══════════════════════════════════════════════════════════════════
-
-# Por defecto, todas las fichas tendrán las 3 dimensiones básicas
-# Puedes modificar esto según las necesidades específicas de cada ficha
-
-FICHA_DIMENSIONES_MAP = {
-    'CONGO': ['DIM1', 'DIM2', 'DIM3'],
-    'GARABATO': ['DIM1', 'DIM2', 'DIM3'],
-    'CUMBIA': ['DIM1', 'DIM2', 'DIM3'],
-    'MAPALE': ['DIM1', 'DIM2', 'DIM3'],
-    'SON_NEGRO': ['DIM1', 'DIM2', 'DIM3'],
-    'COMPARSA_TRAD': ['DIM1', 'DIM2', 'DIM3'],
-    'COMPARSA_FANT': ['DIM1', 'DIM2', 'DIM3'],
-    'DANZAS_ESP': ['DIM2', 'DIM3']  # Ejemplo: esta ficha no tiene DIM1
-}
 
 
 # ═══════════════════════════════════════════════════════════════════

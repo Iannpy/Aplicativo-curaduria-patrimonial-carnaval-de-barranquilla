@@ -43,7 +43,7 @@ def bloque_aspecto(dimension_nombre: str, aspecto_nombre: str, key_prefix: str):
     """
     st.markdown(f"""
     <div style="background-color: #f0f2f6; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-        <p style="margin: 0; color: #666; font-size: 13px;"><b>{dimension_nombre}</b></p>
+        <p style="margin: 0; color: #666; font-size: 13px;"><b></b></p>
         <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold;">{aspecto_nombre}</p>
     </div>
     """, unsafe_allow_html=True)
@@ -52,7 +52,7 @@ def bloque_aspecto(dimension_nombre: str, aspecto_nombre: str, key_prefix: str):
     
     # Columna 1: Resultado
     with col_resultado:
-        st.markdown("**Calificación:**")
+        st.markdown("**Estado:**")
         resultado = st.selectbox(
             "Seleccione",
             [2, 1, 0],
@@ -68,21 +68,23 @@ def bloque_aspecto(dimension_nombre: str, aspecto_nombre: str, key_prefix: str):
     # Columna 2: Observación
     with col_obs:
         st.markdown("**Observación cualitativa:**")
+        observacion= "Nan num nem"
+        """
         observacion = st.text_area(
             "",
             height=50,
             key=f"obs_{key_prefix}",
-            placeholder=f"Describa lo observado específicamente para '{aspecto_nombre}'...",
+            placeholder=f"Describa lo observado específicamente para...",
             label_visibility="collapsed"
         )
-        
+        """
         # Validación en tiempo real
         if observacion:
             valido, error = validar_observacion(observacion)
             if not valido:
                 st.error(f"⚠️ {error}")
-            else:
-                st.success(f"✓ {len(observacion)} caracteres")
+            #else:
+                #st.success(f"✓ {len(observacion)} caracteres")
     
     return resultado, observacion
 
