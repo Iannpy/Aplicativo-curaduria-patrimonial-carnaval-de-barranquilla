@@ -14,6 +14,7 @@ from src.config import config
 from src.database.models import EvaluacionModel, AspectoModel
 from src.auth.authentication import crear_boton_logout
 from streamlit_option_menu import option_menu
+from .comite.utils import estado_patrimonial, estado_patrimonial_texto
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +51,7 @@ def generar_pdf_grupo(df_grupo: pd.DataFrame) -> bytes:
     pdf.cell(0, 8, f"Curadores Participantes: {curadores_unicos}", ln=True)
     pdf.cell(0, 8, f"Aspectos Evaluados: {aspectos_evaluados}", ln=True)
 
-    promedio_grupo_num = float(promedio_grupo)
-    if promedio_grupo_num >= config.umbrales.mejora_max:
-        estado_texto = "Fortalecimiento Patrimonial"
-    elif promedio_grupo_num >= config.umbrales.riesgo_max:
-        estado_texto = "Oportunidad de Mejora"
-    else:
-        estado_texto = "Riesgo Patrimonial"
+    estado_texto = estado_patrimonial_texto(promedio_grupo)
     pdf.cell(0, 8, f"Estado Patrimonial: {estado_texto}", ln=True)
     pdf.ln(5)
 
@@ -257,24 +252,6 @@ def mostrar_informe_grupo(df_eval: pd.DataFrame, codigo_grupo: str):
         except Exception as e:
             st.error(f"Error al generar PDF: {str(e)}")
             
-def estado_patrimonial(promedio: float) -> str:
-    """
-    Determina el estado patrimonial según el promedio
-    
-    Args:
-        promedio: Promedio de calificaciones
-        
-    Returns:
-        String con emoji y texto del estado
-    """
-    if promedio < config.umbrales.riesgo_max:
-        return f"{config.umbrales.emoji_riesgo}"
-    elif promedio < config.umbrales.mejora_max:
-        return f"{config.umbrales.emoji_mejora}"
-    else:
-        return f"{config.umbrales.emoji_fortalecimiento}"
-
-
 def mostrar_vista_comite():
     """Renderiza la vista completa del comité"""
     # Cargar evaluaciones
