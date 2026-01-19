@@ -80,26 +80,9 @@ def bloque_aspecto(dimension_nombre: str, aspecto_nombre: str, key_prefix: str):
             }[x],
             label_visibility="collapsed"
         )
-        #st.markdown("**Observación cualitativa:**")
-        observacion= "Nan num nem"
-        """
-        observacion = st.text_area(
-            "",
-            height=50,
-            key=f"obs_{key_prefix}",
-            placeholder=f"Describa lo observado específicamente para...",
-            label_visibility="collapsed"
-        )
-        """
-        # Validación en tiempo real
-        if observacion:
-            valido, error = validar_observacion(observacion)
-            if not valido:
-                st.error(f"⚠️ {error}")
-            #else:
-                #st.success(f"✓ {len(observacion)} caracteres")
+
     st.markdown("---")
-    return resultado, observacion
+    return resultado
 
 
 def mostrar_vista_curador():
@@ -307,7 +290,10 @@ def mostrar_vista_curador():
         # Contar total de aspectos a evaluar
         total_aspectos = sum(len(d['aspectos']) for d in aspectos_por_dimension.values())
         st.caption(f"📊 Esta ficha requiere evaluar **{total_aspectos} aspectos** distribuidos en **{len(aspectos_por_dimension)} dimensiones**")
-        
+
+        # Variable para la observación global (inicializada fuera del form)
+        observacion_global = ""
+
         with st.form("formulario_evaluacion", clear_on_submit=False):
             evaluaciones = []  # Lista de tuplas (aspecto_id, resultado, observacion)
             
@@ -330,14 +316,20 @@ def mostrar_vista_curador():
                 
                 # Evaluar cada aspecto de esta dimensión
                 for aspecto in aspectos:
-                    resultado, observacion = bloque_aspecto(
+                    resultado = bloque_aspecto(
                         dimension_nombre=dimension['nombre'],
                         aspecto_nombre=aspecto['nombre'],
                         key_prefix=f"asp_{aspecto['id']}"
                     )
-                    evaluaciones.append((aspecto['id'], resultado, observacion))
+                    evaluaciones.append((aspecto['id'], resultado, observacion_global))
             st.markdown("**Observación Cualitativa:**")
-            st.text_area(label="")
+            observacion_global = st.text_area(
+                "",
+                height=80,
+                placeholder="Describa la observación cualitativa general para toda la evaluación de esta ficha...",
+                label_visibility="collapsed",
+                help="Esta observación aplicará a todos los aspectos evaluados en esta ficha"
+            )
 
 
             st.markdown("---")
@@ -356,24 +348,13 @@ def mostrar_vista_curador():
                 )
             
             if submitted:
-                # Validar que todas las observaciones estén completas
+                # Validar la observación global
                 errores = []
-                
-                for i, (aspecto_id, resultado, observacion) in enumerate(evaluaciones):
-                    valido, error = validar_observacion(observacion)
-                    if not valido:
-                        # Obtener nombre del aspecto para el mensaje
-                        aspecto_nombre = None
-                        for dim_data in aspectos_por_dimension.values():
-                            for asp in dim_data['aspectos']:
-                                if asp['id'] == aspecto_id:
-                                    aspecto_nombre = asp['nombre']
-                                    break
-                            if aspecto_nombre:
-                                break
-                        
-                        errores.append(f"**{aspecto_nombre}:** {error}")
-                
+
+                valido, error = validar_observacion(observacion_global)
+                if not valido:
+                    errores.append(f"**Observación Cualitativa:** {error}")
+
                 if errores:
                     st.error("❌ Complete correctamente todas las observaciones:")
                     for error in errores:
@@ -388,7 +369,7 @@ def mostrar_vista_curador():
                         progress_bar = st.progress(0)
                         status_text = st.empty()
                         
-                        for idx, (aspecto_id, resultado, observacion) in enumerate(evaluaciones):
+                        for idx, (aspecto_id, resultado, _) in enumerate(evaluaciones):
                             # Actualizar progreso
                             progress = (idx + 1) / len(evaluaciones)
                             progress_bar.progress(progress)
@@ -403,7 +384,7 @@ def mostrar_vista_curador():
                                 ficha_id=ficha_id,  # ← NUEVO PARÁMETRO
                                 aspecto_id=aspecto_id,
                                 resultado=resultado,
-                                observacion=observacion
+                                observacion=observacion_global
                             )
                             
                             if eval_id:
@@ -474,30 +455,31 @@ def mostrar_vista_curador():
             
             ---
             
-            ### 📝 Guía para Observaciones
-            
-            Las observaciones deben ser:
-            
-            - **Específicas:** Mencione qué observó concretamente en este aspecto
-            - **Descriptivas:** Describa la situación sin juicios de valor excesivos
-            - **Constructivas:** Oriente sobre qué mantener o mejorar
-            - **Enfocadas:** Cada observación debe referirse únicamente al aspecto que está evaluando
-            - **Fundamentadas:** Base sus observaciones en evidencia concreta de la presentación
-            
-            **Requisitos técnicos:**
-            - Mínimo: 5 caracteres por observación
-            - Recomendado: 50-200 caracteres para una evaluación completa
-            - Evite observaciones genéricas como "bien", "mal", "regular"
-            
-            ---
-            
-            ### 💡 Consejos Prácticos
-            
-            1. **Tome notas durante la presentación** de cada aspecto específico
-            2. **Sea objetivo** y base sus evaluaciones en criterios patrimoniales
-            3. **Sea coherente** en sus calificaciones entre diferentes grupos
-            4. **Documente lo positivo y lo mejorable** en sus observaciones
-            5. **Revise antes de guardar** que todas las observaciones estén completas
+             ### 📝 Guía para Observaciones
+
+             La observación cualitativa debe ser:
+
+             - **General:** Aplica a toda la ficha de evaluación, no a aspectos individuales
+             - **Específica:** Mencione qué observó concretamente en la presentación
+             - **Descriptiva:** Describa la situación sin juicios de valor excesivos
+             - **Constructiva:** Oriente sobre qué mantener o mejorar en general
+             - **Fundamentada:** Base sus observaciones en evidencia concreta de la presentación
+
+             **Requisitos técnicos:**
+             - Mínimo: 5 caracteres por observación
+             - Recomendado: 50-200 caracteres para una evaluación completa
+             - Evite observaciones genéricas como "bien", "mal", "regular"
+             - Esta observación se aplicará a todos los aspectos evaluados
+
+             ---
+
+             ### 💡 Consejos Prácticos
+
+             1. **Tome notas durante la presentación** general del grupo
+             2. **Sea objetivo** y base sus evaluaciones en criterios patrimoniales
+             3. **Sea coherente** en sus calificaciones entre diferentes grupos
+             4. **Documente lo positivo y lo mejorable** en la observación general
+             5. **Revise antes de guardar** que la observación esté completa
             
             ---
             

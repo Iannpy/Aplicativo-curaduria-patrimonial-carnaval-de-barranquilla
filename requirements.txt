@@ -4,3 +4,4 @@ openpyxl==3.1.2
 python-dotenv==1.0.0
 bcrypt==4.1.2
 altair==5.2.0
+fpdf==1.7.2

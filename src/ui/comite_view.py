@@ -6,6 +6,10 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import logging
+from io import BytesIO
+import zipfile
+import os
+from fpdf import FPDF
 from src.config import config
 from src.database.models import EvaluacionModel, AspectoModel
 from src.auth.authentication import crear_boton_logout
@@ -14,6 +18,245 @@ from streamlit_option_menu import option_menu
 logger = logging.getLogger(__name__)
 
 
+def generar_pdf_grupo(df_grupo: pd.DataFrame) -> bytes:
+    """Genera un PDF con el informe detallado del grupo"""
+
+    grupo_info = df_grupo.iloc[0]
+    codigo_grupo = grupo_info['codigo_grupo']
+    nombre_grupo = grupo_info['nombre_propuesta']
+
+    pdf = FPDF()
+    pdf.add_page()
+
+    # Título
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Informe de Evaluacion Patrimonial", ln=True, align="C")
+    pdf.cell(0, 10, f"Grupo: {nombre_grupo} ({codigo_grupo})", ln=True, align="C")
+    pdf.cell(0, 10, f"Evento: {config.nombre_evento}", ln=True, align="C")
+    pdf.ln(10)
+
+    # Métricas principales
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Metricas Principales", ln=True)
+    pdf.set_font("Arial", "", 10)
+
+    promedio_grupo = df_grupo['resultado'].mean()
+    evaluaciones_total = len(df_grupo)
+    curadores_unicos = df_grupo['curador'].nunique()
+    aspectos_evaluados = df_grupo['aspecto'].nunique()
+
+    pdf.cell(0, 8, f"Promedio General: {promedio_grupo:.2f}", ln=True)
+    pdf.cell(0, 8, f"Total Evaluaciones: {evaluaciones_total}", ln=True)
+    pdf.cell(0, 8, f"Curadores Participantes: {curadores_unicos}", ln=True)
+    pdf.cell(0, 8, f"Aspectos Evaluados: {aspectos_evaluados}", ln=True)
+
+    promedio_grupo_num = float(promedio_grupo)
+    if promedio_grupo_num >= config.umbrales.mejora_max:
+        estado_texto = "Fortalecimiento Patrimonial"
+    elif promedio_grupo_num >= config.umbrales.riesgo_max:
+        estado_texto = "Oportunidad de Mejora"
+    else:
+        estado_texto = "Riesgo Patrimonial"
+    pdf.cell(0, 8, f"Estado Patrimonial: {estado_texto}", ln=True)
+    pdf.ln(5)
+
+    # Desempeño por dimensión
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Desempeno por Dimension", ln=True)
+    pdf.set_font("Arial", "", 10)
+
+    df_dim_grupo = (df_grupo
+        .groupby('dimension', as_index=False)
+        .agg(
+            promedio=('resultado', 'mean'),
+            evaluaciones=('resultado', 'count')
+        )
+        .sort_values('promedio', ascending=False)
+    )
+
+    for _, row in df_dim_grupo.iterrows():
+        pdf.cell(0, 8, f"{row['dimension']}: {row['promedio']:.2f} ({int(row['evaluaciones'])} evaluaciones)", ln=True)
+
+    pdf.ln(5)
+
+    # Desempeño por aspecto
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Detalle por Aspecto", ln=True)
+    pdf.set_font("Arial", "", 9)
+
+    df_aspecto_grupo = (df_grupo
+        .groupby(['dimension', 'aspecto'], as_index=False)
+        .agg(promedio=('resultado', 'mean'))
+        .sort_values(['dimension', 'promedio'], ascending=[True, False])
+    )
+
+    for _, row in df_aspecto_grupo.iterrows():
+        emoji = 'Fortaleza' if row['promedio'] >= 1.5 else 'Oportunidad' if row['promedio'] >= 0.5 else 'Riesgo'
+        pdf.cell(0, 6, f"{row['dimension']} - {row['aspecto']}: {row['promedio']:.2f} ({emoji})", ln=True)
+
+    pdf.ln(5)
+
+    # Observaciones
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Observaciones Cualitativas", ln=True)
+    pdf.set_font("Arial", "", 9)
+
+    # Obtener UNA observación por curador (la más reciente o primera disponible)
+    observaciones_unicas = (df_grupo[df_grupo['observacion'].notna() & (df_grupo['observacion'].str.strip() != "")]
+        .drop_duplicates(subset=['curador'], keep='first')
+        .sort_values('fecha_registro', ascending=False)
+    )
+    
+    if not observaciones_unicas.empty:
+        for _, row in observaciones_unicas.iterrows():
+            pdf.multi_cell(0, 6, f"{row['curador']}: {row['observacion']}")
+            pdf.ln(2)
+    else:
+        pdf.cell(0, 6, "No hay observaciones cualitativas registradas", ln=True)
+
+    # Retornar bytes directamente
+    return pdf.output(dest='S').encode('latin-1')
+
+
+def mostrar_informe_grupo(df_eval: pd.DataFrame, codigo_grupo: str):
+    """Muestra un informe detallado de un grupo específico"""
+
+    # Buscar grupo en evaluaciones
+    df_grupo = df_eval[df_eval['codigo_grupo'].str.upper() == codigo_grupo.upper()]
+
+    if df_grupo.empty:
+        st.error(f"❌ Grupo '{codigo_grupo}' no encontrado en las evaluaciones")
+        # Mostrar sugerencias
+        st.info("💡 Grupos disponibles:")
+        grupos_disponibles = df_eval['codigo_grupo'].unique()
+        st.dataframe(pd.DataFrame({'Códigos disponibles': sorted(grupos_disponibles)}), use_container_width=False)
+        return
+
+    # Información básica del grupo
+    grupo_info = df_grupo.iloc[0]
+    st.success(f"✅ Informe encontrado para: **{grupo_info['nombre_propuesta']}** ({codigo_grupo})")
+
+    # Métricas principales del grupo
+    col1, col2, col3, col4 = st.columns(4)
+
+    promedio_grupo = df_grupo['resultado'].mean()
+    evaluaciones_total = len(df_grupo)
+    curadores_unicos = df_grupo['curador'].nunique()
+    aspectos_evaluados = df_grupo['aspecto'].nunique()
+
+    with col1:
+        st.metric("Promedio General", f"{promedio_grupo:.2f}")
+    with col2:
+        st.metric("Total Evaluaciones", evaluaciones_total)
+    with col3:
+        st.metric("Curadores", curadores_unicos)
+    with col4:
+        st.metric("Aspectos Evaluados", aspectos_evaluados)
+
+    # Estado patrimonial
+    estado = estado_patrimonial(promedio_grupo)
+    st.info(f"**Estado Patrimonial:** {estado}")
+
+    st.markdown("---")
+
+    # Desempeño por dimensión
+    st.subheader("📊 Desempeño por Dimensión")
+
+    df_dim_grupo = (df_grupo
+        .groupby('dimension', as_index=False)
+        .agg(
+            promedio=('resultado', 'mean'),
+            evaluaciones=('resultado', 'count'),
+            curadores=('curador', 'nunique')
+        )
+        .sort_values('promedio', ascending=False)
+    )
+
+    st.dataframe(
+        df_dim_grupo.style.format({'promedio': '{:.2f}'}),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # Desempeño por aspecto
+    st.subheader("✅ Detalle por Aspecto")
+
+    df_aspecto_grupo = (df_grupo
+        .groupby(['dimension', 'aspecto'], as_index=False)
+        .agg(
+            promedio=('resultado', 'mean'),
+            evaluaciones=('resultado', 'count')
+        )
+        .sort_values(['dimension', 'promedio'], ascending=[True, False])
+    )
+
+    # Mapear resultados a emojis
+    df_aspecto_grupo['resultado_emoji'] = df_aspecto_grupo['promedio'].apply(lambda x: '🟢' if x >= 1.5 else '🟡' if x >= 0.5 else '🔴')
+
+    st.dataframe(
+        df_aspecto_grupo[['dimension', 'aspecto', 'resultado_emoji', 'promedio', 'evaluaciones']].style.format({'promedio': '{:.2f}'}),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            'resultado_emoji': st.column_config.TextColumn('Estado'),
+            'promedio': st.column_config.NumberColumn('Promedio', format='%.2f')
+        }
+    )
+
+    # Evaluaciones detalladas
+    st.subheader("📋 Evaluaciones Detalladas")
+
+    df_detalle = df_grupo[[
+        'curador', 'dimension', 'aspecto', 'resultado', 'observacion', 'fecha_registro'
+    ]].copy()
+
+    # Mapear resultado a emoji
+    df_detalle['resultado_emoji'] = df_detalle['resultado'].map({2: '🟢', 1: '🟡', 0: '🔴'})
+
+    st.dataframe(
+        df_detalle.sort_values('fecha_registro', ascending=False),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            'resultado_emoji': st.column_config.TextColumn('Resultado'),
+            'fecha_registro': st.column_config.DatetimeColumn('Fecha', format='DD/MM/YYYY HH:mm')
+        }
+    )
+
+    
+    # Observaciones cualitativas
+    st.subheader("💬 Observaciones Cualitativas")
+
+    # Obtener UNA observación por curador
+    observaciones_unicas = (df_grupo[df_grupo['observacion'].notna() & (df_grupo['observacion'].str.strip() != "")]
+        .drop_duplicates(subset=['curador'], keep='first')
+        .sort_values('fecha_registro', ascending=False)
+    )
+    
+    if not observaciones_unicas.empty:
+        for _, row in observaciones_unicas.iterrows():
+            st.markdown(f"**{row['curador']}**: {row['observacion']}")
+    else:
+        st.info("No hay observaciones cualitativas registradas para este grupo")
+
+# Botón de exportación PDF
+    st.markdown("---")
+    col_exp1, col_exp2, col_exp3 = st.columns([1, 2, 1])
+
+    with col_exp2:
+        try:
+            pdf_buffer = generar_pdf_grupo(df_grupo)
+            st.download_button(
+                label="📄 Descargar Informe PDF",
+                data=pdf_buffer,
+                file_name=f"Informe_{codigo_grupo}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True
+            )
+        except Exception as e:
+            st.error(f"Error al generar PDF: {str(e)}")
+            
 def estado_patrimonial(promedio: float) -> str:
     """
     Determina el estado patrimonial según el promedio
@@ -110,21 +353,36 @@ def mostrar_vista_comite():
 
 def mostrar_dashboard(df_eval: pd.DataFrame):
     """Dashboard general con KPIs y gráficos principales"""
-    
+
     st.header("📊 Dashboard General")
-    st.markdown("Resumen de Evaluaciones Patrimoniales")
-    
+    st.markdown("Resumen Ejecutivo de Evaluaciones Patrimoniales")
+
+    if df_eval.empty:
+        st.warning("⚠️ No hay evaluaciones registradas todavía")
+        st.info("Las métricas aparecerán aquí una vez que los curadores comiencen a evaluar grupos")
+        return
+
     # Calcular promedios por grupo (promedio de TODOS los aspectos evaluados)
     df_promedios = (df_eval
         .groupby(['codigo_grupo', 'nombre_propuesta', 'modalidad'], as_index=False)
         .agg(promedio_final=('resultado', 'mean'))
+        .dropna(subset=['promedio_final'])  # Eliminar filas con promedio NaN
     )
-    
+
+    if df_promedios.empty:
+        st.warning("⚠️ No hay evaluaciones completas para calcular promedios")
+        return
+
     df_promedios['estado'] = df_promedios['promedio_final'].apply(estado_patrimonial)
     
     # KPIs principales
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+    total_evaluaciones = len(df_eval)
+    curadores_activos = df_eval['curador'].nunique()
+    aspectos_evaluados = df_eval['aspecto'].nunique()
+    promedio_general = df_promedios['promedio_final'].mean()
+
     with col1:
         grupos_evaluados = df_promedios['codigo_grupo'].nunique()
         st.markdown(f"""
@@ -134,9 +392,26 @@ def mostrar_dashboard(df_eval: pd.DataFrame):
             </div>""",
             unsafe_allow_html=True
         )
-        
+
     with col2:
-        promedio_general = df_promedios['promedio_final'].mean()
+        st.markdown(f"""
+            <div class="metric-card">
+            <div class="dimension-title">Total Evaluaciones</div>
+            <div class="metric-value">{total_evaluaciones}</div>
+            </div>""",
+            unsafe_allow_html=True
+        )
+
+    with col3:
+        st.markdown(f"""
+            <div class="metric-card">
+            <div class="dimension-title">Curadores Activos</div>
+            <div class="metric-value">{curadores_activos}</div>
+            </div>""",
+            unsafe_allow_html=True
+        )
+
+    with col4:
         st.markdown(f"""
             <div class="metric-card">
             <div class="dimension-title">Promedio General</div>
@@ -144,8 +419,8 @@ def mostrar_dashboard(df_eval: pd.DataFrame):
             </div>""",
             unsafe_allow_html=True
         )
-    
-    with col3:
+
+    with col5:
         en_riesgo = (df_promedios['promedio_final'] < config.umbrales.riesgo_max).sum()
         st.markdown(f"""
             <div class="metric-card">
@@ -154,19 +429,8 @@ def mostrar_dashboard(df_eval: pd.DataFrame):
             </div>""",
             unsafe_allow_html=True
         )
-    
-    with col4:
-        en_mejora = ((df_promedios['promedio_final'] >= config.umbrales.riesgo_max) & 
-                      (df_promedios['promedio_final'] < config.umbrales.mejora_max)).sum()
-        st.markdown(f"""
-            <div class="metric-card">
-            <div class="dimension-title">🟡 Por mejorar</div>
-            <div class="metric-value">{en_mejora}</div>
-            </div>""",
-            unsafe_allow_html=True
-        )
 
-    with col5:
+    with col6:
         fortalecidos = (df_promedios['promedio_final'] >= config.umbrales.mejora_max).sum()
         st.markdown(f"""
             <div class="metric-card">
@@ -175,7 +439,39 @@ def mostrar_dashboard(df_eval: pd.DataFrame):
             </div>""",
             unsafe_allow_html=True
         )
-    
+
+    # Estado de evaluación general
+    estado_general = estado_patrimonial(promedio_general)
+    st.info(f"**Estado Patrimonial General:** {estado_general}")
+
+    # Insights y recomendaciones
+    st.markdown("---")
+    st.subheader("💡 Insights y Recomendaciones")
+
+    col_ins1, col_ins2 = st.columns(2)
+
+    with col_ins1:
+        if en_riesgo > 0:
+            porcentaje_riesgo = (en_riesgo / grupos_evaluados) * 100
+            st.warning(f"⚠️ **{en_riesgo} grupos en riesgo** ({porcentaje_riesgo:.1f}%) requieren atención inmediata")
+            st.markdown("**Recomendaciones:**")
+            st.markdown("- Revisar evaluaciones detalladas")
+            st.markdown("- Identificar fortalezas y debilidades")
+            st.markdown("- Planificar intervenciones específicas")
+
+    with col_ins2:
+        if fortalecidos > 0:
+            porcentaje_fort = (fortalecidos / grupos_evaluados) * 100
+            st.success(f"✅ **{fortalecidos} grupos fortalecidos** ({porcentaje_fort:.1f}%) son modelos a seguir")
+            st.markdown("**Acciones:**")
+            st.markdown("- Documentar buenas prácticas")
+            st.markdown("- Compartir conocimientos")
+            st.markdown("- Reconocer logros")
+
+    if curadores_activos > 0:
+        evaluaciones_por_curador = total_evaluaciones / curadores_activos
+        st.info(f"📊 **Productividad:** {evaluaciones_por_curador:.1f} evaluaciones por curador activo")
+
     st.markdown("---")
     
     # Gráfico: Promedio por Modalidad
@@ -329,8 +625,7 @@ def mostrar_evaluaciones_detalladas(df_eval: pd.DataFrame):
     
     with col_opt3:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("📥 Exportar"):
-            st.info("🚧 Funcionalidad en desarrollo")
+        # Placeholder for export button, will be added after filtering
     
     # Filtrar
     df_mostrar = df_eval.copy()
@@ -374,31 +669,80 @@ def mostrar_evaluaciones_detalladas(df_eval: pd.DataFrame):
     
     st.caption(f"Total de registros: {len(df_mostrar)}")
 
+    # Exportar a CSV (después de filtrar)
+    col_exp1, col_exp2, col_exp3 = st.columns([1, 2, 1])
+    with col_exp2:
+        csv_data = df_mostrar.to_csv(index=False)
+        st.download_button(
+            label="📥 Exportar CSV",
+            data=csv_data,
+            file_name=f"evaluaciones_detalladas_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            type="primary",
+            use_container_width=True
+        )
+
 
 def mostrar_analisis_grupos(df_eval: pd.DataFrame):
     """Análisis consolidado por grupos"""
-    
+
     st.header("🎭 Análisis por Grupos")
     st.caption("Vista consolidada del desempeño de cada grupo")
-    
+
+    if df_eval.empty:
+        st.warning("⚠️ No hay evaluaciones para analizar por grupos")
+        return
+
+    # Buscador de grupo para informe detallado
+    st.subheader("🔍 Búsqueda de Grupo para Informe")
+
+    col_busq1, col_busq2 = st.columns([2, 1])
+
+    with col_busq1:
+        id_busqueda = st.text_input(
+            "Ingrese el código del grupo:",
+            placeholder="P123",
+            help="Ingrese el código tal como aparece en la lista"
+        )
+
+    with col_busq2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔍 Buscar", type="primary", use_container_width=True):
+            st.rerun()
+
+    # Si se busca un grupo específico, mostrar informe detallado
+    if id_busqueda:
+        mostrar_informe_grupo(df_eval, id_busqueda)
+        st.markdown("---")
+        st.subheader("📊 Vista Consolidada de Todos los Grupos")
+
     # Calcular promedios por grupo y dimensión
     df_grupo_dim = (df_eval
         .groupby(['codigo_grupo', 'nombre_propuesta', 'modalidad', 'dimension'], as_index=False)
         .agg(promedio_dimension=('resultado', 'mean'))
     )
-    
+
+    if df_grupo_dim.empty:
+        st.warning("⚠️ No hay datos suficientes para análisis por dimensión")
+        return
+
     # Crear tabla pivote
     df_pivot = df_grupo_dim.pivot_table(
         index=['codigo_grupo', 'nombre_propuesta', 'modalidad'],
         columns='dimension',
-        values='promedio_dimension'
+        values='promedio_dimension',
+        fill_value=0  # Rellenar NaN con 0 para grupos sin todas las dimensiones
     ).reset_index()
-    
+
     # Calcular promedio final (promedio de todas las dimensiones)
-    dim_cols = [c for c in df_pivot.columns if c.startswith('Dimensión')]
-    df_pivot['Promedio Final'] = df_pivot[dim_cols].mean(axis=1)
-    df_pivot['Estado'] = df_pivot['Promedio Final'].apply(estado_patrimonial)
-    
+    dim_cols = [c for c in df_pivot.columns if c not in ['codigo_grupo', 'nombre_propuesta', 'modalidad']]
+    if dim_cols:
+        df_pivot['Promedio Final'] = df_pivot[dim_cols].mean(axis=1)
+        df_pivot['Estado'] = df_pivot['Promedio Final'].apply(estado_patrimonial)
+    else:
+        st.warning("⚠️ No se encontraron dimensiones en las evaluaciones")
+        return
+
     # Ordenar por promedio
     df_pivot = df_pivot.sort_values('Promedio Final', ascending=False)
     
@@ -429,15 +773,31 @@ def mostrar_analisis_grupos(df_eval: pd.DataFrame):
     
     # Mostrar tabla
     st.dataframe(
-        df_filtrado.style.format({
+        df_pivot.style.format({
             **{col: '{:.2f}' for col in dim_cols},
             'Promedio Final': '{:.2f}'
         }),
         use_container_width=True,
         hide_index=True
     )
-    
-    st.caption(f"Mostrando {len(df_filtrado)} de {len(df_pivot)} grupos")
+
+    # Exportar tabla a Excel
+    excel_buffer = BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+        df_filtrado.to_excel(writer, sheet_name='Analisis_Grupos', index=False)
+
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        st.download_button(
+            label="📊 Exportar a Excel",
+            data=excel_buffer.getvalue(),
+            file_name=f"analisis_grupos_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="secondary"
+        )
+
+    with col_exp2:
+        st.caption(f"Mostrando {len(df_filtrado)} de {len(df_pivot)} grupos")
     
     # Estadísticas rápidas
     st.markdown("---")
@@ -457,16 +817,21 @@ def mostrar_analisis_grupos(df_eval: pd.DataFrame):
 
 def mostrar_analisis_dimensiones(df_eval: pd.DataFrame):
     """Análisis por dimensiones patrimoniales"""
-    
+
     st.header("📊 Análisis por Dimensión")
     st.caption("Desempeño consolidado en cada dimensión patrimonial")
-    
+
+    if df_eval.empty:
+        st.warning("⚠️ No hay evaluaciones para analizar por dimensión")
+        return
+
     # Promedio por dimensión
     df_dim = (df_eval
         .groupby('dimension', as_index=False)
         .agg(
             promedio=('resultado', 'mean'),
-            evaluaciones=('resultado', 'count')
+            evaluaciones=('resultado', 'count'),
+            grupos=('codigo_grupo', 'nunique')
         )
         .sort_values('promedio', ascending=False)
     )
@@ -1033,9 +1398,43 @@ def mostrar_panel_admin():
     
     with tab2:
         st.subheader("💾 Sistema de Backups")
-        
-        if st.button("Crear Backup Ahora"):
-            st.info("🚧 Funcionalidad en desarrollo")
+
+        st.info("💡 Se crea un backup comprimido de la base de datos completa")
+
+        if st.button("📦 Crear Backup Ahora", type="primary"):
+            try:
+                # Crear buffer para el ZIP
+                zip_buffer = BytesIO()
+
+                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    # Agregar la base de datos
+                    db_path = config.db_path
+                    if os.path.exists(db_path):
+                        zip_file.write(db_path, os.path.basename(db_path))
+                    else:
+                        st.error("❌ Archivo de base de datos no encontrado")
+                        return
+
+                    # Agregar archivo de configuración si existe
+                    excel_path = config.excel_path
+                    if os.path.exists(excel_path):
+                        zip_file.write(excel_path, os.path.basename(excel_path))
+
+                zip_buffer.seek(0)
+
+                # Descargar el ZIP
+                st.download_button(
+                    label="⬇️ Descargar Backup",
+                    data=zip_buffer.getvalue(),
+                    file_name=f"backup_curaduria_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                    mime="application/zip",
+                    type="secondary"
+                )
+
+                st.success("✅ Backup creado exitosamente")
+
+            except Exception as e:
+                st.error(f"❌ Error al crear backup: {e}")
     
     with tab3:
         st.subheader("📊 Estadísticas del Sistema")
