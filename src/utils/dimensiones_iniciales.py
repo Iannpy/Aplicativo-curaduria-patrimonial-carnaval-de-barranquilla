@@ -64,7 +64,7 @@ DIMENSIONES_INICIALES = [
      "orden": 2,
      "aspectos": [
          "Baile de casa",
-         "Paso de marca"]
+         "Paso de marcha"]
     },
     {"codigo": "DIM3",
      "nombre": "Vestuario y Parafernalia - Congo",
