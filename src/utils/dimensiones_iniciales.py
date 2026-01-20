@@ -25,7 +25,7 @@ FICHAS_INICIALES = [
         'descripcion': 'Modalidad Danza Tradicional - Mapalé'
     },
     {
-        'codigo': 'SON_NEGRO',
+        'codigo': 'SON_DE_NEGRO',
         'nombre': 'Ficha Son de Negro',
         'descripcion': 'Modalidad Danza Tradicional - Son de Negro'
     },
