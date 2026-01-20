@@ -234,7 +234,7 @@ DIMENSIONES_INICIALES = [
          "El baile de la mujer tiene movimientos de caderas y con los glúteos buscan golpear al hombre, este trata de evitar el contacto"]
     },
     {"codigo": "DIM25",
-     "nombre": "Música",
+     "nombre": "Música - Son de Negro",
      "orden": 25,
      "aspectos": [
          "Integración instrumental",
