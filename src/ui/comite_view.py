@@ -878,6 +878,7 @@ def mostrar_panel_admin():
                 "Actualizar grupos existentes (mantiene evaluaciones)",
                 "Agregar solo grupos nuevos",
                 "Sincronización completa (actualiza + agrega)",
+                "🗑️ Eliminar SOLO evaluaciones (mantiene grupos)",
                 "⚠️ Eliminar todo y recargar (BORRA EVALUACIONES)"
             ]
         )
@@ -996,7 +997,72 @@ def mostrar_panel_admin():
                                         pass
                             
                             st.success(f"✅ {actualizados} grupos actualizados, {nuevos} grupos nuevos")
-                        
+                        elif "Eliminar SOLO evaluaciones" in sync_option:
+                            # ============================================================
+                            # OPCIÓN: ELIMINAR SOLO EVALUACIONES (SIMPLIFICADO)
+                            # ============================================================
+                            st.error("⚠️ ADVERTENCIA: Esta opción eliminará TODAS las evaluaciones")
+                            st.info("✅ Los grupos NO serán eliminados")
+                            
+                            # Mostrar estadísticas
+                            try:
+                                cursor.execute("SELECT COUNT(*) FROM evaluaciones")
+                                total_evaluaciones = cursor.fetchone()[0]
+                                
+                                cursor.execute("SELECT COUNT(DISTINCT codigo_grupo) FROM evaluaciones")
+                                grupos_evaluados = cursor.fetchone()[0]
+                                
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.metric("Total Evaluaciones", total_evaluaciones)
+                                with col2:
+                                    st.metric("Grupos Evaluados", grupos_evaluados)
+                                
+                            except Exception as e:
+                                st.warning(f"Error obteniendo estadísticas: {e}")
+                                total_evaluaciones = 0
+                            
+                            st.markdown("---")
+                            
+                            # UN SOLO BOTÓN CON CONFIRMACIÓN
+                            if st.button(
+                                f"🗑️ ELIMINAR TODAS LAS EVALUACIONES ({total_evaluaciones})", 
+                                type="primary", 
+                                use_container_width=True,
+                                key="btn_eliminar_eval"
+                            ):
+                                try:
+                                    # Eliminar evaluaciones
+                                    cursor.execute("DELETE FROM evaluaciones")
+                                    evaluaciones_eliminadas = cursor.rowcount
+                                    
+                                    # Verificar
+                                    cursor.execute("SELECT COUNT(*) FROM evaluaciones")
+                                    verificacion = cursor.fetchone()[0]
+                                    
+                                    if verificacion == 0:
+                                        st.success(f"✅ Se eliminaron {evaluaciones_eliminadas} evaluaciones")
+                                        
+                                        cursor.execute("SELECT COUNT(*) FROM grupos")
+                                        grupos_restantes = cursor.fetchone()[0]
+                                        st.info(f"ℹ️ Los {grupos_restantes} grupos permanecen intactos")
+                                        
+                                        # Log
+                                        from src.database.models import LogModel
+                                        LogModel.registrar_log(
+                                            usuario=st.session_state.usuario,
+                                            accion="ELIMINACION_EVALUACIONES",
+                                            detalle=f"Eliminadas: {evaluaciones_eliminadas} evaluaciones"
+                                        )
+                                        
+                                        st.cache_data.clear()
+                                        st.balloons()
+                                    else:
+                                        st.error(f"❌ Error: Quedan {verificacion} evaluaciones")
+                                        
+                                except Exception as e:
+                                    st.error(f"❌ Error: {str(e)}")
+                                    logger.exception("Error eliminando evaluaciones")
                         else:
                             # Eliminar todo
                             st.error("Esta opción eliminará TODAS las evaluaciones")

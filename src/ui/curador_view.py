@@ -293,7 +293,7 @@ def mostrar_vista_curador():
                 
                 # Mostrar título de dimensión
                 st.markdown(f"""
-                <div class="dimension-box" style="background: linear-gradient(135deg, #FCAB60 0%, #08A114 100%); 
+                <div class="dimension-box" style="background: linear-gradient(100deg, #C30A36 0%, #EEC216 50%, #278F45 100%); 
                      color: white; padding: 15px; border-radius: 10px; margin: 20px 0 15px 0;">
                     <h3 style="margin: 0; font-size: 18px;">{dimension['nombre']}</h3>
                     <p style="margin: 5px 0 0 0; font-size: 13px; opacity: 0.9;">{len(aspectos)} aspectos a evaluar</p>
@@ -472,19 +472,19 @@ def mostrar_vista_curador():
             st.markdown(f"""
             ### 🎯 Criterios de Calificación
             
-            **🟢 Fortaleza Patrimonial (2 puntos)**
+            **🟢 Fortaleza Patrimonial**
             - Cumplimiento sobresaliente del aspecto evaluado
             - Evidencia clara, consistente y bien ejecutada
             - Práctica consolidada y culturalmente pertinente
             - Transmite efectivamente el valor patrimonial
             
-            **🟡 Oportunidad de Mejora (1 punto)**
+            **🟡 Oportunidad de Mejora**
             - Cumplimiento parcial del aspecto
             - Evidencia de intención pero con elementos por fortalecer
             - Práctica en proceso de consolidación
             - Requiere ajustes para alcanzar su potencial patrimonial
             
-            **🔴 Riesgo Patrimonial (0 puntos)**
+            **🔴 Riesgo Patrimonial**
             - Incumplimiento del aspecto evaluado
             - Ausencia de elementos fundamentales
             - Práctica que requiere intervención urgente
