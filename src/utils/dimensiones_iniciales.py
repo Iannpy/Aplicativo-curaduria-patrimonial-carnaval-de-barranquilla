@@ -47,7 +47,12 @@ FICHAS_INICIALES = [
     {
         'codigo': 'DANZAS_ESP',
         'nombre': 'Ficha Danzas Especiales',
-        'descripcion': 'Danzas Especiales y Expresiones Invitadas'
+        'descripcion': 'Danzas Especiales'
+    },
+    {
+        'codigo': 'EXPRESIONES_I',
+        'nombre': 'Ficha Expresiones Invitadas',
+        'descripcion': 'Expresiones Invitadas'
     }
     
 ]
@@ -349,6 +354,68 @@ DIMENSIONES_INICIALES = [
      "aspectos": [
          "Música."]
     },
+    # Grupo 9 - Danzas de Especiales
+    {"codigo": "DIM41",
+     "nombre": "Presentación de la danza en su conjunto",
+     "orden": 41,
+     "aspectos": [
+         "Presentación de la danza."]
+    },
+    {"codigo": "DIM42",
+     "nombre": "Vestuario acorde la danza - Danzas Especiales",
+     "orden": 42,
+     "aspectos": [
+         "Vestuario."]
+    },
+    {"codigo": "DIM43",
+     "nombre": "Coreografía de acuerdo a la tradición - Danzas Especiales",
+     "orden": 43,
+     "aspectos": [
+         "Coreografía coherente."]
+    },
+    {"codigo": "DIM44",
+     "nombre": "Marcación del ritmo - Danzas de Relación",
+     "orden": 44,
+     "aspectos": [
+         "Marcación del ritmo."]
+    },
+    {"codigo": "DIM45",
+     "nombre": "Música - Danzas Especiales",
+     "orden": 45,
+     "aspectos": [
+         "Música."]
+    },
+    # Grupo 10 - Expresiones Invitadas
+    {"codigo": "DIM46",
+     "nombre": "Presentación de la danza en su conjunto - Expresiones Invitadas",
+     "orden": 46,
+     "aspectos": [
+         "Presentación de la danza."]
+    },
+    {"codigo": "DIM47",
+     "nombre": "Vestuario acorde a la danza",
+     "orden": 47,
+     "aspectos": [
+         "Vestuario."]
+    },
+    {"codigo": "DIM48",
+     "nombre": "Coreografía de acuerdo a la tradición",
+     "orden": 48,
+     "aspectos": [
+         "Coreografía."]
+    },
+    {"codigo": "DIM49",
+     "nombre": "Marcación del ritmo - Expresiones invitadas",
+     "orden": 49,
+     "aspectos": [
+         "Marcación del ritmo."]
+    },
+    {"codigo": "DIM50",
+     "nombre": "Música - Expresiones Invitadas",
+     "orden": 50,
+     "aspectos": [
+         "Música."]
+    }
 ]
 
 
@@ -371,6 +438,6 @@ FICHA_DIMENSIONES_MAP = {
     'COMPARSA_TRAD': ['DIM26', 'DIM27', 'DIM28', 'DIM29', 'DIM30'],
     'COMPARSA_FANT': ['DIM31', 'DIM32', 'DIM33', 'DIM34', 'DIM35'],
     'DANZAS_REL' : ['DIM36', 'DIM37', 'DIM38', 'DIM39', 'DIM40'],
-    'DANZAS_ESP': ['DIM2', 'DIM3']
-    
+    'DANZAS_ESP': ['DIM41', 'DIM42', 'DIM43', 'DIM44', 'DIM45'],
+    'EXPRESIONES_I' : ['DIM46', 'DIM47', 'DIM48', 'DIM49', 'DIM50']
 }
