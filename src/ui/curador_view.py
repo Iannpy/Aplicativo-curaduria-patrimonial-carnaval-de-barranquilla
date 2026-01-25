@@ -121,7 +121,7 @@ def mostrar_vista_curador():
         with col_busq1:
             id_busqueda = st.text_input(
                 "Ingrese el código del grupo:",
-                placeholder="P123",
+                placeholder="",
                 help="Ingrese el código tal como aparece en su listado"
             )
         
