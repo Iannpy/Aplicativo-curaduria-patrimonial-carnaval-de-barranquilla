@@ -306,16 +306,33 @@ def mostrar_evaluaciones_detalladas(df_eval: pd.DataFrame) -> None:
     
     st.caption(f"Total de registros: {len(df_mostrar)}")
 
-    # Exportar a CSV (después de filtrar)
-    col_exp1, col_exp2, col_exp3 = st.columns([1, 2, 1])
+    # Exportar datos (después de filtrar)
+    col_exp1, col_exp2, col_exp3 = st.columns(3)
+    
+    with col_exp1:
+        # Exportar a Excel
+        excel_buffer = BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+            df_mostrar.to_excel(writer, sheet_name='Evaluaciones', index=False)
+        
+        st.download_button(
+            label="📥 Exportar Excel",
+            data=excel_buffer.getvalue(),
+            file_name=f"evaluaciones_detalladas_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True
+        )
+
     with col_exp2:
+        # Exportar a CSV
         csv_data = df_mostrar.to_csv(index=False)
         st.download_button(
             label="📥 Exportar CSV",
             data=csv_data,
             file_name=f"evaluaciones_detalladas_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
-            type="primary",
+            type="secondary",
             use_container_width=True
         )
 
