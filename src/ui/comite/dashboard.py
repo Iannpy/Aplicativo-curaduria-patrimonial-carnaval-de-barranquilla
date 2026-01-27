@@ -224,7 +224,7 @@ def mostrar_dashboard(df_eval: pd.DataFrame):
     cantidad_modalidad = df_filtrado.shape[0]
 
     import math
-    cantidad_congos = int(math.ceil(cantidad_modalidad * 0.15))
+    cantidad_congos = int(math.ceil(cantidad_modalidad * 0.25))
 
     if cantidad_modalidad == 0:
         st.warning(f"⚠️ No hay grupos en la modalidad '{seleccion_modalidad}'")
@@ -233,7 +233,7 @@ def mostrar_dashboard(df_eval: pd.DataFrame):
         with col_info1:
             st.metric("Grupos en modalidad", cantidad_modalidad)
         with col_info2:
-            st.metric("Congos de Oro (15%)", cantidad_congos)
+            st.metric("Congos de Oro (25%)", cantidad_congos)
 
         if cantidad_congos <= 0:
             st.info("No hay congos asignables para esta modalidad (cantidad insuficiente).")
