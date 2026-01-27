@@ -351,10 +351,7 @@ def mostrar_vista_curador():
                 # 1. Validar que TODOS los aspectos tengan calificación
                 for aspecto_id, datos in evaluaciones_dict.items():
                     if datos['resultado'] is None:
-                        aspectos_sin_calificar.append({
-                            'dimension': datos['dimension_nombre'],
-                            'aspecto': datos['aspecto_nombre']
-                        })
+                        aspectos_sin_calificar.append(datos)
                 
                 if aspectos_sin_calificar:
                     errores.append(f"**{len(aspectos_sin_calificar)} aspectos sin calificar:**")
@@ -362,17 +359,17 @@ def mostrar_vista_curador():
                     # Agrupar por dimensión para mostrar de forma organizada
                     por_dimension = {}
                     for item in aspectos_sin_calificar:
-                        dim = item['dimension']
+                        dim = item['dimension_nombre']
                         if dim not in por_dimension:
                             por_dimension[dim] = []
-                        por_dimension[dim].append(item['aspecto'])
+                        por_dimension[dim].append(item['aspecto_nombre'])
                     
                     for dim, aspectos in por_dimension.items():
                         errores.append(f"\n**{dim}:**")
                         for asp in aspectos:
                             errores.append(f"  • {asp}")
                 
-                # 2. Validar la observación global
+                # 2. Validar la observación global (usa validador centralizado)
                 valido, error = validar_observacion(observacion_global)
                 if not valido:
                     errores.append(f"\n**Observación Cualitativa:** {error}")

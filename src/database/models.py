@@ -8,7 +8,7 @@ import bcrypt
 import re
 from typing import Optional, List, Dict, Tuple
 from src.database.connection import get_db_connection, ejecutar_insert
-from src.utils.validators import validar_codigo_grupo, validar_observacion
+from src.utils.validators import validar_codigo_grupo, validar_observacion, validar_resultado
 
 logger = logging.getLogger(__name__)
 
@@ -1001,6 +1001,13 @@ class EvaluacionModel:
                         aspecto_id: int, resultado: int, observacion: str) -> Optional[int]:
         """Crea una nueva evaluación para un aspecto específico."""
         try:
+            # Validar resultado (usa validador centralizado)
+            valido, error = validar_resultado(resultado)
+            if not valido:
+                logger.error(f"Resultado inválido: {error}")
+                return None
+            
+            # Validar observación (usa validador centralizado)
             valido, error = validar_observacion(observacion)
             if not valido:
                 logger.error(f"Observación inválida: {error}")
@@ -1026,27 +1033,29 @@ class EvaluacionModel:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Contar cuántos aspectos únicos ha evaluado para esta ficha
+                # Query optimizada: cuenta aspectos evaluados vs totales en una sola query
                 cursor.execute("""
-                    SELECT COUNT(DISTINCT aspecto_id)
-                    FROM evaluaciones
-                    WHERE usuario_id = ? AND codigo_grupo = ? AND ficha_id = ?
-                """, (usuario_id, codigo_grupo, ficha_id))
-                
-                count_evaluado = cursor.fetchone()[0]
-                
-                # Contar cuántos aspectos totales tiene esta ficha
-                cursor.execute("""
-                    SELECT COUNT(a.id)
-                    FROM aspectos a
-                    JOIN ficha_dimensiones fd ON a.dimension_id = fd.dimension_id
+                    SELECT 
+                        COUNT(DISTINCT e.aspecto_id) as evaluados,
+                        COUNT(DISTINCT a.id) as totales
+                    FROM ficha_dimensiones fd
+                    JOIN dimensiones d ON fd.dimension_id = d.id
+                    LEFT JOIN aspectos a ON d.id = a.dimension_id
+                    LEFT JOIN evaluaciones e ON e.aspecto_id = a.id 
+                        AND e.usuario_id = ? 
+                        AND e.codigo_grupo = ? 
+                        AND e.ficha_id = ?
                     WHERE fd.ficha_id = ?
-                """, (ficha_id,))
+                """, (usuario_id, codigo_grupo, ficha_id, ficha_id))
                 
-                count_total = cursor.fetchone()[0]
+                row = cursor.fetchone()
+                if row:
+                    evaluados = row['evaluados'] or 0
+                    totales = row['totales'] or 0
+                    # Si ha evaluado todos los aspectos de la ficha, la evaluación está completa
+                    return totales > 0 and evaluados >= totales
                 
-                # Si ha evaluado todos los aspectos de la ficha, la evaluación está completa
-                return count_evaluado >= count_total
+                return False
                 
         except Exception as e:
             logger.error(f"Error verificando evaluación: {e}")
@@ -1093,6 +1102,8 @@ class EvaluacionModel:
                         g.tipo,
                         g.naturaleza,
                         f.nombre as ficha,
+                        -- Ficha asociada al grupo (ficha del grupo)
+                        fg.nombre as ficha_grupo,
                         d.nombre as dimension,
                         a.nombre as aspecto,
                         e.resultado,
@@ -1102,6 +1113,7 @@ class EvaluacionModel:
                     LEFT JOIN usuarios u ON e.usuario_id = u.id
                     LEFT JOIN grupos g ON e.codigo_grupo = g.codigo
                     LEFT JOIN fichas f ON e.ficha_id = f.id
+                    LEFT JOIN fichas fg ON g.ficha_id = fg.id
                     JOIN aspectos a ON e.aspecto_id = a.id
                     JOIN dimensiones d ON a.dimension_id = d.id
                     ORDER BY e.fecha_registro DESC

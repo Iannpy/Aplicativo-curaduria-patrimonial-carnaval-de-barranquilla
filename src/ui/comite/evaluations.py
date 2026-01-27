@@ -1,9 +1,10 @@
 import pandas as pd
 import streamlit as st
 import altair as alt
+import pandas as pd
 
 
-def mostrar_evaluaciones_detalladas(df_eval: pd.DataFrame):
+def mostrar_evaluaciones_detalladas(df_eval: pd.DataFrame) -> None:
     """Tabla detallada de todas las evaluaciones"""
 
     st.header("📋 Evaluaciones Detalladas")
@@ -36,7 +37,8 @@ def mostrar_evaluaciones_detalladas(df_eval: pd.DataFrame):
             df_mostrar['nombre_propuesta'].str.contains(buscar, case=False, na=False) |
             df_mostrar['curador'].str.contains(buscar, case=False, na=False) |
             df_mostrar['dimension'].str.contains(buscar, case=False, na=False) |
-            df_mostrar['aspecto'].str.contains(buscar, case=False, na=False)
+            df_mostrar['aspecto'].str.contains(buscar, case=False, na=False) |
+            df_mostrar['ficha_grupo'].astype(str).str.contains(buscar, case=False, na=False)
         ]
 
     if filtro_resultado != "Todos":
@@ -53,7 +55,7 @@ def mostrar_evaluaciones_detalladas(df_eval: pd.DataFrame):
     # Mostrar tabla
     st.dataframe(
         df_mostrar[[
-            'curador', 'codigo_grupo', 'nombre_propuesta',
+            'curador', 'codigo_grupo', 'nombre_propuesta', 'ficha_grupo',
             'modalidad', 'dimension', 'aspecto', 'resultado_emoji',
             'observacion', 'fecha_registro'
         ]].sort_values('fecha_registro', ascending=False),
